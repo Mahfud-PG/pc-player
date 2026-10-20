@@ -1,0 +1,80 @@
+TRANSLATIONS = {
+    # Context Menu
+    "Menu Pemutaran": {"en": "Playback Menu"},
+    "Pengatur Waktu Tidur (Ctrl+T)": {"en": "Sleep Timer (Ctrl+T)"},
+    "Mainkan / Jeda (Spasi)": {"en": "Play / Pause (Space)"},
+    "Lagu Sebelumnya (A)": {"en": "Previous Track (A)"},
+    "Lagu Berikutnya (G)": {"en": "Next Track (G)"},
+    "Putar Lambat (S)": {"en": "Play Slow (S)"},
+    "Putar Normal (D)": {"en": "Play Normal (D)"},
+    "Putar Cepat (F)": {"en": "Play Fast (F)"},
+    "Ulangi / Repeat (R)": {"en": "Repeat (R)"},
+    "Acak / Shuffle (C)": {"en": "Shuffle (C)"},
+    
+    "Menu Looping A-B": {"en": "A-B Looping Menu"},
+    "Set Titik A Loop ([)": {"en": "Set Loop Point A ([)"},
+    "Set Titik B Loop (])": {"en": "Set Loop Point B (])"},
+    "Hapus Loop (\\)": {"en": "Clear Loop (\\)"},
+    
+    "Menu Online & Download": {"en": "Online & Download Menu"},
+    "Cari Lagu (Ctrl + F)": {"en": "Search Song (Ctrl + F)"},
+    "Putar dari Link (Ctrl + L)": {"en": "Play from Link (Ctrl + L)"},
+    "Download Lagu Ini (Ctrl + D)": {"en": "Download This Song (Ctrl + D)"},
+    
+    "Menu Tampilan & Video": {"en": "Appearance & Video Menu"},
+    "Video mode layar normal (F11)": {"en": "Normal Screen Video (F11)"},
+    "Video mode layar penuh (F11)": {"en": "Fullscreen Video (F11)"},
+    "Ubah ke Tema Terang (Light Mode)": {"en": "Change to Light Theme"},
+    "Ubah ke Tema Gelap (Dark Mode)": {"en": "Change to Dark Theme"},
+    "Ubah Warna Aksen (Custom Tema)": {"en": "Change Accent Color"},
+    "Galeri Latar (Internal)": {"en": "Background Gallery (Internal)"},
+    "1. Gelap Abstrak": {"en": "1. Dark Abstract"},
+    "2. Terang Elegan": {"en": "2. Light Elegant"},
+    "3. Neon Musik": {"en": "3. Music Neon"},
+    "Impor Latar Pribadi (Dari PC)": {"en": "Import Custom Background"},
+    "Hapus Latar Belakang": {"en": "Clear Background"},
+    
+    "Menu Info & Sistem": {"en": "Info & System Menu"},
+    "Info Audio (I)": {"en": "Audio Info (I)"},
+    "Jadikan Pemutar Utama (Daftarkan ke Windows)": {"en": "Set as Default Player"},
+    "Pilih Bahasa / Language": {"en": "Choose Language / Bahasa"},
+    
+    # UI Elements (Main Window)
+    "Trek Sebelumnya": {"en": "Previous Track"},
+    "Mainkan / Jeda": {"en": "Play / Pause"},
+    "Berhenti": {"en": "Stop"},
+    "Trek Berikutnya": {"en": "Next Track"},
+    "Volume": {"en": "Volume"},
+    "Durasi": {"en": "Duration"},
+    
+    # Notifications & Messages
+    "Bahasa / Language": {"en": "Language"},
+    "Bahasa telah diubah / Language has been changed.": {"en": "Language has been changed."},
+    "Sleep Timer Aktif": {"en": "Sleep Timer Active"},
+    "Timer tidur sedang berjalan. Apakah Anda ingin membatalkannya?": {"en": "Sleep timer is running. Do you want to cancel it?"},
+    "Sleep Timer": {"en": "Sleep Timer"},
+    "Timer tidur berhasil dibatalkan.": {"en": "Sleep timer successfully canceled."},
+    "Pengatur Waktu Tidur": {"en": "Sleep Timer Setup"},
+    "Masukkan waktu sebelum pemutaran berhenti otomatis (menit):": {"en": "Enter time before playback stops automatically (minutes):"},
+    
+    "Lanjutkan Pemutaran?": {"en": "Resume Playback?"},
+    "Ingin melanjutkan pemutaran ini?": {"en": "Do you want to resume this playback?"},
+    
+    "Kecepatan": {"en": "Speed"},
+    "Kecepatan dikembalikan ke Normal (1.0x)": {"en": "Speed returned to Normal (1.0x)"},
+    "Kecepatan diubah menjadi": {"en": "Speed changed to"},
+    
+    "Ulangi": {"en": "Repeat"},
+    "Ulangi Aktif": {"en": "Repeat On"},
+    "Ulangi Nonaktif": {"en": "Repeat Off"},
+    "Acak": {"en": "Shuffle"},
+    "Acak Aktif": {"en": "Shuffle On"},
+    "Acak Nonaktif": {"en": "Shuffle Off"},
+    
+    "Looping": {"en": "Looping"},
+    "Titik A Loop ditandai": {"en": "Loop Point A set"},
+    "Titik B Loop ditandai": {"en": "Loop Point B set"},
+    "Harap set Titik A terlebih dahulu!": {"en": "Please set Point A first!"},
+    "Titik B tidak boleh lebih kecil dari Titik A!": {"en": "Point B cannot be earlier than Point A!"},
+    "Loop dibersihkan": {"en": "Loop cleared"},
+}

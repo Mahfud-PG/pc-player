@@ -1,0 +1,59 @@
+====================================================
+               PANDUAN PC PLAYER
+====================================================
+
+1. TENTANG SOFTWARE
+----------------------------------------------------
+PC Player adalah pemutar media berbasis Python dan PyQt6 yang dirancang khusus dengan mengutamakan kecepatan, antarmuka minimalis, dan aksesibilitas penuh via keyboard (Keyboard-centric & Screen Reader Friendly). Pemutar ini mendukung file lokal maupun streaming langsung dari internet.
+
+2. SPESIFIKASI SISTEM
+----------------------------------------------------
+- Sistem Operasi Minimal: Windows 10 (64-bit) atau Windows 11.
+- Kebutuhan Internet: Hanya diperlukan jika Anda menggunakan fitur streaming (Ctrl+L), pencarian (Ctrl+F), atau download (Ctrl+D).
+- Instalasi: Bersifat portabel (Stand-alone). Cukup jalankan PC Player.exe tanpa perlu instalasi.
+
+3. FITUR UNGGULAN
+----------------------------------------------------
+- Integrasi Windows (Niban): Daftarkan sebagai pemutar utama. Saat mengeklik file audio di File Explorer, aplikasi akan langsung meniban dan memainkan lagu tanpa jeda.
+- Streaming Langsung: Mampu menyedot audio dari link YouTube, SoundCloud, dll.
+- A-B Loop: Mengulang bagian spesifik dalam sebuah lagu.
+- Download Instan: Mengunduh musik yang sedang di-streaming langsung ke PC Anda.
+- Persistent Volume: Volume akan selalu tersimpan pada sesi terakhir Anda.
+- Ramah Tuna Netra: Seluruh notifikasi dikirim via dialog box agar otomatis terbacakan oleh Screen Reader.
+
+4. DAFTAR SHORTCUT KEYBOARD LENGKAP
+----------------------------------------------------
+* Navigasi & Pemutaran:
+  - Spasi           : Mainkan / Jeda lagu
+  - Panah Kiri/Kanan: Mundur / Maju 5 detik
+  - Panah Atas/Bwh  : Naikkan / Turunkan volume
+  - S               : Putar Lambat
+  - D               : Putar Normal
+  - F               : Putar Cepat
+
+* Daftar Putar (Playlist):
+  - Delete          : Hapus lagu yang sedang disorot di daftar putar
+  - Ctrl + Delete   : Bersihkan seluruh daftar putar
+  - Ctrl + S        : Simpan daftar putar ke file (.m3u)
+  - Ctrl + O        : Muat/buka file daftar putar (.m3u)
+
+* Fitur Canggih:
+  - I               : Bacakan Info Audio (Codec, Bitrate, Judul, Artis)
+  - R               : Nyalakan/Matikan mode Putar Ulang (Repeat)
+  - C               : Nyalakan/Matikan mode Putar Acak (Shuffle)
+  - Ctrl + L        : Buka link dari internet (YouTube/Radio)
+  - Ctrl + F        : Cari lagu di internet (YouTube)
+  - Ctrl + D        : Download lagu streaming yang sedang diputar ke folder Downloads
+  
+* A-B Loop:
+  - [ (Kurung Siku Kiri) : Tandai Titik A (Mulai Loop)
+  - ] (Kurung Siku Kanan): Tandai Titik B (Selesai Loop)
+  - \ (Garis Miring)     : Batalkan/Hapus Loop
+
+* Tampilan:
+  - F11             : Layar Penuh (Khusus untuk Video)
+  - Klik Kanan      : Buka Menu Konteks (Ganti Tema, Set Pemutar Utama, dll)
+
+====================================================
+Dibuat dengan dedikasi untuk kemudahan bermusik.
+====================================================

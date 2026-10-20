@@ -1,0 +1,16 @@
+# Build and distribution
+build/
+dist/
+*.spec
+*.exe
+installer.iss
+
+# Byte-compiled
+__pycache__/
+*.py[cod]
+
+# Editor / OS
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
