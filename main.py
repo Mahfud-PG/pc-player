@@ -509,6 +509,10 @@ del "%~f0"
             msg = self.tr(f"Nada +{self.current_pitch}")
         else:
             msg = self.tr(f"Nada {self.current_pitch}")
+            
+        if not self.is_bass_active and self.current_index >= 0:
+            msg += " (Video/Streaming tidak mendukung transpose)"
+            
         self.notify(self.tr("Transpose"), msg)
 
     def update_title(self):
@@ -1045,9 +1049,12 @@ del "%~f0"
         def _switch_track():
             if 0 <= index < len(self.playlist_files):
                 self.current_index = index
-                path = self.playlist_files[index]
-                is_video = path.lower().endswith(('.mp4', '.webm', '.avi', '.mkv')) or "video" in path.lower()
-                is_url = path.startswith("http://") or path.startswith("https://")
+                raw_path = self.playlist_files[index]
+                clean_path = raw_path.strip().strip('"').strip("'")
+                norm_path = os.path.normpath(clean_path)
+                
+                is_video = norm_path.lower().endswith(('.mp4', '.webm', '.avi', '.mkv'))
+                is_url = norm_path.startswith("http://") or norm_path.startswith("https://")
 
                 if is_video:
                     self.video_widget.show()
@@ -1055,10 +1062,14 @@ del "%~f0"
                     self.video_widget.hide()
 
                 # Gunakan BASS Engine untuk file audio lokal agar mendukung real-time Transpose
-                if not is_video and not is_url and os.path.exists(path) and self.bass_engine.initialized:
+                use_bass = False
+                if not is_video and not is_url and self.bass_engine.initialized:
+                    if os.path.exists(norm_path):
+                        use_bass = self.bass_engine.load_file(norm_path)
+
+                if use_bass:
                     self.player.stop()
                     self.is_bass_active = True
-                    self.bass_engine.load_file(path)
                     dur = self.bass_engine.get_duration_ms()
                     self.update_duration(dur)
                     
@@ -1072,9 +1083,9 @@ del "%~f0"
                     self.is_bass_active = False
                     self.bass_poll_timer.stop()
                     if is_url:
-                        self.player.setSource(QUrl(path))
+                        self.player.setSource(QUrl(raw_path))
                     else:
-                        self.player.setSource(QUrl.fromLocalFile(path))
+                        self.player.setSource(QUrl.fromLocalFile(norm_path))
                         
                     def _play():
                         self.player.play()
@@ -1322,19 +1333,9 @@ del "%~f0"
                     self.playlist_widget.addItem(os.path.basename(path))
                 
                 self.current_index = last_index
-                path = self.playlist_files[last_index]
-                
-                if path.lower().endswith(('.mp4', '.webm', '.avi', '.mkv')) or "video" in path.lower():
-                    self.video_widget.show()
-                else:
-                    self.video_widget.hide()
-                    
-                self.pending_resume_position = last_position
-                
-                if path.startswith("http://") or path.startswith("https://"):
-                    self.player.setSource(QUrl(path))
-                else:
-                    self.player.setSource(QUrl.fromLocalFile(path))
+                self.play_track(last_index)
+                if last_position > 0:
+                    QTimer.singleShot(600, lambda: self.set_position(last_position))
                 
                 self.playlist_widget.setCurrentRow(last_index)
             else:
