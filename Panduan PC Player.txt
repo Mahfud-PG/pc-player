@@ -45,6 +45,11 @@ PC Player adalah pemutar media berbasis Python dan PyQt6 yang dirancang khusus d
   - Ctrl + F        : Cari lagu di internet (YouTube)
   - Ctrl + D        : Download lagu streaming yang sedang diputar ke folder Downloads
   
+* Transpose / Nada (Real-Time):
+  - 1               : Turunkan nada (-1 semitone)
+  - 2               : Reset ke nada normal / asli (0)
+  - 3               : Naikkan nada (+1 semitone)
+
 * A-B Loop:
   - [ (Kurung Siku Kiri) : Tandai Titik A (Mulai Loop)
   - ] (Kurung Siku Kanan): Tandai Titik B (Selesai Loop)

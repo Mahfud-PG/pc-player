@@ -5,6 +5,9 @@ TRANSLATIONS = {
     "Mainkan / Jeda (Spasi)": {"en": "Play / Pause (Space)"},
     "Lagu Sebelumnya (A)": {"en": "Previous Track (A)"},
     "Lagu Berikutnya (G)": {"en": "Next Track (G)"},
+    "Turunkan Nada (1)": {"en": "Pitch Down (1)"},
+    "Reset Nada Asli (2)": {"en": "Reset Pitch (2)"},
+    "Naikkan Nada (3)": {"en": "Pitch Up (3)"},
     "Putar Lambat (S)": {"en": "Play Slow (S)"},
     "Putar Normal (D)": {"en": "Play Normal (D)"},
     "Putar Cepat (F)": {"en": "Play Fast (F)"},
@@ -48,6 +51,8 @@ TRANSLATIONS = {
     "Durasi": {"en": "Duration"},
     
     # Notifications & Messages
+    "Transpose": {"en": "Transpose"},
+    "Nada Normal (0)": {"en": "Pitch Normal (0)"},
     "Bahasa / Language": {"en": "Language"},
     "Bahasa telah diubah / Language has been changed.": {"en": "Language has been changed."},
     "Sleep Timer Aktif": {"en": "Sleep Timer Active"},

@@ -11,6 +11,7 @@ from PyQt6.QtCore import Qt, QUrl, QThread, pyqtSignal, QSettings, QTimer
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaMetaData
 from PyQt6.QtMultimediaWidgets import QVideoWidget
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
+from bass_engine import BassEngine
 
 try:
     import yt_dlp
@@ -93,6 +94,9 @@ class PCPlayer(QMainWindow):
         self.audio_output = QAudioOutput()
         self.player = QMediaPlayer()
         self.player.setAudioOutput(self.audio_output)
+        self.bass_engine = BassEngine.get_instance()
+        self.is_bass_active = False
+        self.current_pitch = 0 # Semitones: -12 to +12
         
         self.settings = QSettings("MahfudPG", "PCPlayer")
         
@@ -135,6 +139,11 @@ class PCPlayer(QMainWindow):
         self.player.positionChanged.connect(self.update_position)
         self.player.durationChanged.connect(self.update_duration)
         self.player.mediaStatusChanged.connect(self.status_changed)
+
+        # Timer untuk sinkronisasi posisi BASS engine
+        self.bass_poll_timer = QTimer(self)
+        self.bass_poll_timer.setInterval(200)
+        self.bass_poll_timer.timeout.connect(self.on_bass_poll)
 
         self.last_batch_time = time.time()
         
@@ -235,6 +244,11 @@ class PCPlayer(QMainWindow):
         QShortcut(QKeySequence(Qt.Key.Key_R), self, self.toggle_repeat)
         QShortcut(QKeySequence("C"), self).activated.connect(self.toggle_shuffle)
         
+        # Shortcut Transpose Nada
+        QShortcut(QKeySequence(Qt.Key.Key_1), self, self.pitch_down)
+        QShortcut(QKeySequence(Qt.Key.Key_2), self, self.pitch_reset)
+        QShortcut(QKeySequence(Qt.Key.Key_3), self, self.pitch_up)
+        
         # Shortcut A-B Loop
         QShortcut(QKeySequence("["), self).activated.connect(self.set_loop_a)
         QShortcut(QKeySequence("]"), self).activated.connect(self.set_loop_b)
@@ -300,9 +314,35 @@ class PCPlayer(QMainWindow):
         self.is_shuffle = not self.is_shuffle
         self.update_title()
         
+    def pitch_down(self):
+        self.set_pitch(self.current_pitch - 1)
+
+    def pitch_up(self):
+        self.set_pitch(self.current_pitch + 1)
+
+    def pitch_reset(self):
+        self.set_pitch(0)
+
+    def set_pitch(self, semitones):
+        self.current_pitch = max(-12, min(12, int(semitones)))
+        self.bass_engine.set_pitch(float(self.current_pitch))
+        self.update_title()
+        
+        # Audio & Screen reader feedback
+        if self.current_pitch == 0:
+            msg = self.tr("Nada Normal (0)")
+        elif self.current_pitch > 0:
+            msg = self.tr(f"Nada +{self.current_pitch}")
+        else:
+            msg = self.tr(f"Nada {self.current_pitch}")
+        self.notify(self.tr("Transpose"), msg)
+
     def update_title(self):
         title = "PC Player"
         status = []
+        if self.current_pitch != 0:
+            sign = "+" if self.current_pitch > 0 else ""
+            status.append(f"Nada: {sign}{self.current_pitch}")
         if self.is_repeat:
             status.append("Repeat: ON")
         if self.is_shuffle:
@@ -352,24 +392,24 @@ class PCPlayer(QMainWindow):
         self.volume_slider.setValue(new_vol)
         
     def smooth_seek(self, position):
-        if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+        if self.is_currently_playing():
             def _do_seek():
-                self.player.setPosition(position)
+                self.set_position(position)
                 self.do_fade_in(lambda: None, fast=True)
             self.do_fade_out(_do_seek, fast=True)
         else:
-            self.player.setPosition(position)
+            self.set_position(position)
 
     def forward_5s(self):
-        new_pos = min(self.player.duration(), self.player.position() + 5000)
+        cur_pos = self.bass_engine.get_position_ms() if self.is_bass_active else self.player.position()
+        dur = self.bass_engine.get_duration_ms() if self.is_bass_active else self.player.duration()
+        new_pos = min(dur, cur_pos + 5000)
         self.smooth_seek(new_pos)
         
     def backward_5s(self):
-        new_pos = max(0, self.player.position() - 5000)
+        cur_pos = self.bass_engine.get_position_ms() if self.is_bass_active else self.player.position()
+        new_pos = max(0, cur_pos - 5000)
         self.smooth_seek(new_pos)
-
-    def backward_5s(self):
-        self.player.setPosition(max(0, self.player.position() - 5000))
         
     def exit_fullscreen(self):
         if self.isFullScreen():
@@ -377,12 +417,15 @@ class PCPlayer(QMainWindow):
 
     def speed_slow(self):
         self.player.setPlaybackRate(0.5)
+        self.bass_engine.set_playback_rate(0.5)
         
     def speed_normal(self):
         self.player.setPlaybackRate(1.0)
+        self.bass_engine.set_playback_rate(1.0)
         
     def speed_fast(self):
         self.player.setPlaybackRate(1.5)
+        self.bass_engine.set_playback_rate(1.5)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -426,12 +469,14 @@ class PCPlayer(QMainWindow):
             self.notify("Info", "Layar penuh hanya berlaku saat memutar video.")
 
     def set_loop_a(self):
-        self.loop_a = self.player.position()
+        cur_pos = self.bass_engine.get_position_ms() if self.is_bass_active else self.player.position()
+        self.loop_a = cur_pos
         self.notify("A-B Loop", "Titik A ditandai.")
         
     def set_loop_b(self):
-        if self.loop_a != -1 and self.player.position() > self.loop_a:
-            self.loop_b = self.player.position()
+        cur_pos = self.bass_engine.get_position_ms() if self.is_bass_active else self.player.position()
+        if self.loop_a != -1 and cur_pos > self.loop_a:
+            self.loop_b = cur_pos
             self.notify("A-B Loop", "Titik B ditandai. Looping aktif.")
         else:
             self.notify("Error", "Tandai Titik A terlebih dahulu, dan pastikan Titik B berada setelah Titik A.")
@@ -493,6 +538,10 @@ class PCPlayer(QMainWindow):
         play_pause_action = playback_menu.addAction(self.tr("Mainkan / Jeda (Spasi)"))
         prev_action = playback_menu.addAction(self.tr("Lagu Sebelumnya (A)"))
         next_action = playback_menu.addAction(self.tr("Lagu Berikutnya (G)"))
+        playback_menu.addSeparator()
+        pitch_down_action = playback_menu.addAction(self.tr("Turunkan Nada (1)"))
+        pitch_reset_action = playback_menu.addAction(self.tr("Reset Nada Asli (2)"))
+        pitch_up_action = playback_menu.addAction(self.tr("Naikkan Nada (3)"))
         playback_menu.addSeparator()
         slow_action = playback_menu.addAction(self.tr("Putar Lambat (S)"))
         normal_action = playback_menu.addAction(self.tr("Putar Normal (D)"))
@@ -574,6 +623,12 @@ class PCPlayer(QMainWindow):
             self.play_next()
         elif action == prev_action:
             self.play_prev()
+        elif action == pitch_down_action:
+            self.pitch_down()
+        elif action == pitch_reset_action:
+            self.pitch_reset()
+        elif action == pitch_up_action:
+            self.pitch_up()
         elif action == slow_action:
             self.speed_slow()
         elif action == normal_action:
@@ -814,47 +869,115 @@ class PCPlayer(QMainWindow):
             if 0 <= index < len(self.playlist_files):
                 self.current_index = index
                 path = self.playlist_files[index]
-                if path.lower().endswith(('.mp4', '.webm', '.avi', '.mkv')) or "video" in path.lower():
+                is_video = path.lower().endswith(('.mp4', '.webm', '.avi', '.mkv')) or "video" in path.lower()
+                is_url = path.startswith("http://") or path.startswith("https://")
+
+                if is_video:
                     self.video_widget.show()
                 else:
                     self.video_widget.hide()
+
+                # Gunakan BASS Engine untuk file audio lokal agar mendukung real-time Transpose
+                if not is_video and not is_url and os.path.exists(path) and self.bass_engine.initialized:
+                    self.player.stop()
+                    self.is_bass_active = True
+                    self.bass_engine.load_file(path)
+                    dur = self.bass_engine.get_duration_ms()
+                    self.update_duration(dur)
                     
-                if path.startswith("http://") or path.startswith("https://"):
-                    self.player.setSource(QUrl(path))
+                    def _play():
+                        self.bass_engine.play()
+                        self.play_btn.setText("⏸")
+                        self.bass_poll_timer.start()
+                    self.do_fade_in(_play)
                 else:
-                    self.player.setSource(QUrl.fromLocalFile(path))
-                    
-                def _play():
-                    self.player.play()
-                    self.play_btn.setText("?")
-                self.do_fade_in(_play)
+                    self.bass_engine.stop()
+                    self.is_bass_active = False
+                    self.bass_poll_timer.stop()
+                    if is_url:
+                        self.player.setSource(QUrl(path))
+                    else:
+                        self.player.setSource(QUrl.fromLocalFile(path))
+                        
+                    def _play():
+                        self.player.play()
+                        self.play_btn.setText("⏸")
+                    self.do_fade_in(_play)
+
                 self.playlist_widget.setCurrentRow(index)
                 
         if getattr(self, "fade_timer", None) and self.fade_timer.isActive():
             self.fade_timer.stop()
             self.audio_output.setVolume(self.volume_slider.value() / 100.0)
+            self.bass_engine.set_volume(self.volume_slider.value() / 100.0)
             _switch_track()
-        elif self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+        elif self.is_currently_playing():
             self.do_fade_out(_switch_track)
         else:
             _switch_track()
+
+    def is_currently_playing(self):
+        if self.is_bass_active:
+            return self.bass_engine.is_playing()
+        return self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState
+
+    def is_currently_paused(self):
+        if self.is_bass_active:
+            return self.bass_engine.is_paused()
+        return self.player.playbackState() == QMediaPlayer.PlaybackState.PausedState
+
+    def on_bass_poll(self):
+        if not self.is_bass_active:
+            self.bass_poll_timer.stop()
+            return
+
+        pos = self.bass_engine.get_position_ms()
+        dur = self.bass_engine.get_duration_ms()
+
+        # Looping A-B
+        if self.loop_a != -1 and self.loop_b != -1 and self.loop_b > self.loop_a:
+            if pos >= self.loop_b:
+                self.bass_engine.set_position_ms(self.loop_a)
+                pos = self.loop_a
+
+        self.timeline_slider.blockSignals(True)
+        self.timeline_slider.setValue(pos)
+        self.timeline_slider.blockSignals(False)
+        self.time_label_current.setText(self.format_time(pos))
+
+        # Check end of track
+        if self.bass_engine.is_stopped() and pos >= max(0, dur - 500) and dur > 0:
+            self.bass_poll_timer.stop()
+            if self.is_repeat:
+                self.bass_engine.set_position_ms(0)
+                self.bass_engine.play()
+                self.bass_poll_timer.start()
+            else:
+                self.play_next()
 
     def toggle_play(self):
         if getattr(self, "fade_timer", None) and self.fade_timer.isActive():
             return
             
-        if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+        if self.is_currently_playing():
             def _pause():
-                self.player.pause()
+                if self.is_bass_active:
+                    self.bass_engine.pause()
+                    self.bass_poll_timer.stop()
+                else:
+                    self.player.pause()
                 self.play_btn.setText("▶")
-                # Removed volume restoration here to prevent loud pop
             self.do_fade_out(_pause)
         else:
             if self.current_index == -1 and self.playlist_files:
                 self.play_track(0)
             else:
                 def _play():
-                    self.player.play()
+                    if self.is_bass_active:
+                        self.bass_engine.play()
+                        self.bass_poll_timer.start()
+                    else:
+                        self.player.play()
                     self.play_btn.setText("⏸")
                 self.do_fade_in(_play)
 
@@ -863,13 +986,16 @@ class PCPlayer(QMainWindow):
             return
             
         def _stop():
-            self.player.stop()
+            if self.is_bass_active:
+                self.bass_engine.stop()
+                self.bass_poll_timer.stop()
+            else:
+                self.player.stop()
             self.play_btn.setText("▶")
             self.timeline_slider.setValue(0)
             self.time_label_current.setText("00:00")
-            # Removed volume restoration here to prevent loud pop
             
-        if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+        if self.is_currently_playing():
             self.do_fade_out(_stop)
         else:
             _stop()
@@ -885,10 +1011,12 @@ class PCPlayer(QMainWindow):
             self.current_fade_vol -= self.fade_step_val
             if self.current_fade_vol <= 0:
                 self.audio_output.setVolume(0)
+                self.bass_engine.set_volume(0)
                 self.fade_timer.stop()
                 callback()
             else:
                 self.audio_output.setVolume(self.current_fade_vol)
+                self.bass_engine.set_volume(self.current_fade_vol)
         
         self.fade_timer.timeout.connect(step)
         self.fade_timer.start()
@@ -896,6 +1024,7 @@ class PCPlayer(QMainWindow):
     def do_fade_in(self, callback, fast=False):
         target_vol = self.volume_slider.value() / 100.0
         self.audio_output.setVolume(0)
+        self.bass_engine.set_volume(0)
         callback()
         
         self.fade_timer = QTimer(self)
@@ -908,9 +1037,11 @@ class PCPlayer(QMainWindow):
             self.current_fade_vol += self.fade_step_val
             if self.current_fade_vol >= target_vol:
                 self.audio_output.setVolume(target_vol)
+                self.bass_engine.set_volume(target_vol)
                 self.fade_timer.stop()
             else:
                 self.audio_output.setVolume(self.current_fade_vol)
+                self.bass_engine.set_volume(self.current_fade_vol)
                 
         self.fade_timer.timeout.connect(step)
         self.fade_timer.start()
@@ -927,13 +1058,17 @@ class PCPlayer(QMainWindow):
             self.stop_media()
 
     def play_prev(self):
-        if self.player.position() > 3000:
-            self.player.setPosition(0)
+        cur_pos = self.bass_engine.get_position_ms() if self.is_bass_active else self.player.position()
+        if cur_pos > 3000:
+            self.set_position(0)
         elif self.current_index > 0:
             self.play_track(self.current_index - 1)
 
     def set_position(self, position):
-        self.player.setPosition(position)
+        if self.is_bass_active:
+            self.bass_engine.set_position_ms(position)
+        else:
+            self.player.setPosition(position)
 
     def update_position(self, position):
         if self.loop_a != -1 and self.loop_b != -1 and self.loop_b > self.loop_a:
@@ -959,6 +1094,7 @@ class PCPlayer(QMainWindow):
     def set_volume(self, value):
         volume = value / 100
         self.audio_output.setVolume(volume)
+        self.bass_engine.set_volume(volume)
         self.settings.setValue("volume", volume)
 
     def status_changed(self, status):
@@ -1030,27 +1166,31 @@ class PCPlayer(QMainWindow):
                 self.settings.remove("last_position")
 
     def closeEvent(self, event):
+        cur_pos = self.bass_engine.get_position_ms() if self.is_bass_active else self.player.position()
         if self.playlist_files and self.current_index >= 0:
             self.settings.setValue("last_playlist", self.playlist_files)
             self.settings.setValue("last_index", self.current_index)
-            self.settings.setValue("last_position", self.player.position())
+            self.settings.setValue("last_position", cur_pos)
         else:
             self.settings.remove("last_playlist")
             self.settings.remove("last_index")
             self.settings.remove("last_position")
             
         if getattr(self, "is_closing", False):
+            self.bass_engine.stop()
             event.accept()
             return
             
-        if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+        if self.is_currently_playing():
             event.ignore()
             self.is_closing = True
             def _close():
                 self.player.stop()
+                self.bass_engine.stop()
                 self.close()
             self.do_fade_out(_close)
         else:
+            self.bass_engine.stop()
             event.accept()
 
     def set_sleep_timer(self):
