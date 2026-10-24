@@ -45,18 +45,30 @@ class BassEngine:
         return cls._instance
 
     def _init_dlls(self):
+        # Locate BASS directory (look in _MEIPASS, next to exe, or in script dir)
+        candidates = []
         if getattr(sys, "frozen", False):
-            base_dir = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+            if hasattr(sys, "_MEIPASS"):
+                candidates.append(os.path.join(sys._MEIPASS, "bass"))
+            candidates.append(os.path.join(os.path.dirname(sys.executable), "bass"))
         else:
-            base_dir = os.path.dirname(os.path.abspath(__file__))
+            candidates.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "bass"))
+        
+        # Fallback to absolute dev bass dir if running anywhere on this machine
+        candidates.append(r"E:\antigravity\pc player\bass")
 
-        bass_dir = os.path.join(base_dir, "bass")
+        bass_dir = None
+        for c in candidates:
+            if os.path.exists(os.path.join(c, "bass.dll")) and os.path.exists(os.path.join(c, "bass_fx.dll")):
+                bass_dir = c
+                break
+
+        if not bass_dir:
+            print("BASS DLLs not found in candidates:", candidates)
+            return
+
         bass_dll_path = os.path.join(bass_dir, "bass.dll")
         bass_fx_path = os.path.join(bass_dir, "bass_fx.dll")
-
-        if not os.path.exists(bass_dll_path) or not os.path.exists(bass_fx_path):
-            print("BASS DLLs not found at:", bass_dir)
-            return
 
         try:
             self.bass = ctypes.WinDLL(bass_dll_path)

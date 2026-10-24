@@ -245,9 +245,9 @@ class PCPlayer(QMainWindow):
         QShortcut(QKeySequence("C"), self).activated.connect(self.toggle_shuffle)
         
         # Shortcut Transpose Nada
-        QShortcut(QKeySequence(Qt.Key.Key_1), self, self.pitch_down)
-        QShortcut(QKeySequence(Qt.Key.Key_2), self, self.pitch_reset)
-        QShortcut(QKeySequence(Qt.Key.Key_3), self, self.pitch_up)
+        QShortcut(QKeySequence("1"), self, self.pitch_down)
+        QShortcut(QKeySequence("2"), self, self.pitch_reset)
+        QShortcut(QKeySequence("3"), self, self.pitch_up)
         
         # Shortcut A-B Loop
         QShortcut(QKeySequence("["), self).activated.connect(self.set_loop_a)
@@ -275,6 +275,19 @@ class PCPlayer(QMainWindow):
         QShortcut(QKeySequence("Ctrl+S"), self, self.save_playlist)
         QShortcut(QKeySequence("Ctrl+O"), self, self.load_playlist)
 
+    def keyPressEvent(self, event):
+        key = event.key()
+        if key == Qt.Key.Key_1:
+            self.pitch_down()
+            return
+        elif key == Qt.Key.Key_2:
+            self.pitch_reset()
+            return
+        elif key == Qt.Key.Key_3:
+            self.pitch_up()
+            return
+        super().keyPressEvent(event)
+
     def prompt_url(self):
         url, ok = QInputDialog.getText(self, "Putar dari Link", "Masukkan URL (YouTube, Radio Streaming, dll):")
         if ok and url:
@@ -289,7 +302,7 @@ class PCPlayer(QMainWindow):
         msg.setText(message)
         msg.setStandardButtons(QMessageBox.StandardButton.NoButton)
         msg.show()
-        QTimer.singleShot(1500, msg.accept)
+        QTimer.singleShot(800, msg.accept)
 
     def on_url_fetched(self, title, stream_url, original_url, error):
         self.update_title() # Kembalikan judul normal
