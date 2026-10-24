@@ -38,6 +38,9 @@ TRANSLATIONS = {
     "Hapus Latar Belakang": {"en": "Clear Background"},
     
     "Menu Info & Sistem": {"en": "Info & System Menu"},
+    "Periksa Pembaruan...": {"en": "Check for Updates..."},
+    "Pembaruan Tersedia": {"en": "Update Available"},
+    "Versi Terbaru": {"en": "Latest Version"},
     "Info Audio (I)": {"en": "Audio Info (I)"},
     "Jadikan Pemutar Utama (Daftarkan ke Windows)": {"en": "Set as Default Player"},
     "Pilih Bahasa / Language": {"en": "Choose Language / Bahasa"},

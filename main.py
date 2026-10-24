@@ -3,6 +3,10 @@ import os
 import winreg
 import random
 import time
+import urllib.request
+import json
+import tempfile
+import subprocess
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QPushButton, QSlider, QLabel, QListWidget, 
                              QMenu, QMessageBox, QInputDialog, QFileDialog, QColorDialog)
@@ -12,6 +16,84 @@ from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaMetaData
 from PyQt6.QtMultimediaWidgets import QVideoWidget
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from bass_engine import BassEngine
+
+APP_VERSION = "2.1.0"
+GITHUB_REPO = "Mahfud-PG/pc-player"
+
+class UpdateCheckerThread(QThread):
+    update_found = pyqtSignal(str, str, str)  # version, notes, download_url
+    no_update = pyqtSignal(str)              # current_version
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, current_version, repo_name, silent=True):
+        super().__init__()
+        self.current_version = current_version
+        self.repo_name = repo_name
+        self.silent = silent
+
+    def run(self):
+        try:
+            url = f"https://api.github.com/repos/{self.repo_name}/releases/latest"
+            req = urllib.request.Request(url, headers={"User-Agent": "PCPlayer-App"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                tag = data.get("tag_name", "").lstrip("v")
+                body = data.get("body", "Pembaruan versi baru tersedia.")
+                assets = data.get("assets", [])
+                dl_url = None
+                for a in assets:
+                    name = a.get("name", "").lower()
+                    if name.endswith(".exe"):
+                        dl_url = a.get("browser_download_url")
+                        break
+
+                def parse_ver(v_str):
+                    parts = []
+                    for part in v_str.split("."):
+                        digits = "".join(c for c in part if c.isdigit())
+                        if digits:
+                            parts.append(int(digits))
+                    return parts
+
+                remote_v = parse_ver(tag)
+                local_v = parse_ver(self.current_version)
+
+                if dl_url and remote_v > local_v:
+                    self.update_found.emit(tag, body, dl_url)
+                else:
+                    self.no_update.emit(self.current_version)
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+class UpdateDownloadThread(QThread):
+    progress = pyqtSignal(int)
+    finished = pyqtSignal(str)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, download_url):
+        super().__init__()
+        self.download_url = download_url
+
+    def run(self):
+        try:
+            dest_file = os.path.join(tempfile.gettempdir(), "PC_Player_Update.exe")
+            req = urllib.request.Request(self.download_url, headers={"User-Agent": "PCPlayer-App"})
+            with urllib.request.urlopen(req, timeout=30) as resp, open(dest_file, "wb") as out:
+                total = int(resp.info().get("Content-Length", 0))
+                downloaded = 0
+                chunk_sz = 131072
+                while True:
+                    chunk = resp.read(chunk_sz)
+                    if not chunk:
+                        break
+                    out.write(chunk)
+                    downloaded += len(chunk)
+                    if total > 0:
+                        pct = int((downloaded / total) * 100)
+                        self.progress.emit(pct)
+            self.finished.emit(dest_file)
+        except Exception as e:
+            self.error_occurred.emit(str(e))
 
 try:
     import yt_dlp
@@ -149,6 +231,9 @@ class PCPlayer(QMainWindow):
         
         # Cek riwayat pemutaran terakhir
         QTimer.singleShot(500, self.prompt_resume_playback)
+
+        # Cek pembaruan otomatis di latar belakang secara hening setelah antarmuka aktif
+        QTimer.singleShot(2500, lambda: self.check_for_updates(silent=True))
 
         # Cek argumen jika dibuka via Open With atau Folder (Double Click)
         if len(sys.argv) > 1:
@@ -295,6 +380,82 @@ class PCPlayer(QMainWindow):
             self.fetch_thread = URLFetchThread(url)
             self.fetch_thread.finished_signal.connect(self.on_url_fetched)
             self.fetch_thread.start()
+
+    def check_for_updates(self, silent=True):
+        if hasattr(self, 'update_checker') and self.update_checker.isRunning():
+            return
+        self.update_checker = UpdateCheckerThread(APP_VERSION, GITHUB_REPO, silent=silent)
+        self.update_checker.update_found.connect(self.on_update_found)
+        self.update_checker.no_update.connect(lambda cur_v: self.on_no_update(cur_v, silent))
+        self.update_checker.error_occurred.connect(lambda err: self.on_update_error(err, silent))
+        self.update_checker.start()
+
+    def on_update_found(self, tag, notes, dl_url):
+        title = self.tr("Pembaruan Tersedia")
+        msg = f"Pembaruan PC Player v{tag} telah tersedia!\nVersi Anda saat ini: v{APP_VERSION}\n\nCatatan Rilis:\n{notes}\n\nApakah Anda ingin mengunduh dan memperbarui sekarang?"
+        reply = QMessageBox.question(
+            self,
+            title,
+            msg,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.start_downloading_update(dl_url, tag)
+
+    def on_no_update(self, cur_v, silent):
+        if not silent:
+            QMessageBox.information(self, self.tr("Versi Terbaru"), f"Anda sudah menggunakan versi terbaru PC Player (v{cur_v}).")
+
+    def on_update_error(self, err, silent):
+        if not silent:
+            QMessageBox.warning(self, "Pembaruan", f"Gagal memeriksa pembaruan:\n{err}")
+
+    def start_downloading_update(self, dl_url, tag):
+        self.notify("Pembaruan", f"Mengunduh pembaruan v{tag}...")
+        self.update_dl_thread = UpdateDownloadThread(dl_url)
+        self.update_dl_thread.progress.connect(self.on_update_dl_progress)
+        self.update_dl_thread.finished.connect(self.on_update_dl_finished)
+        self.update_dl_thread.error_occurred.connect(self.on_update_dl_error)
+        self.update_dl_thread.start()
+
+    def on_update_dl_progress(self, pct):
+        self.setWindowTitle(f"PC Player [Mengunduh Pembaruan: {pct}%]")
+
+    def on_update_dl_finished(self, new_exe_path):
+        self.update_title()
+        current_exe = sys.executable if getattr(sys, "frozen", False) else os.path.abspath(sys.argv[0])
+        
+        if getattr(sys, "frozen", False):
+            bat_path = os.path.join(tempfile.gettempdir(), "pcplayer_apply_update.bat")
+            bat_content = f'''@echo off
+timeout /t 2 /nobreak >nul
+copy /y "{new_exe_path}" "{current_exe}" >nul
+start "" "{current_exe}"
+del "%~f0"
+'''
+            try:
+                with open(bat_path, "w", encoding="utf-8") as f:
+                    f.write(bat_content)
+                QMessageBox.information(
+                    self,
+                    "Memasang Pembaruan",
+                    "Pembaruan berhasil diunduh!\nAplikasi akan memulai ulang secara otomatis untuk menerapkan versi baru."
+                )
+                subprocess.Popen(["cmd.exe", "/c", bat_path], creationflags=subprocess.CREATE_NO_WINDOW)
+                QApplication.quit()
+            except Exception as e:
+                QMessageBox.warning(self, "Error", f"Gagal menerapkan pembaruan: {e}")
+        else:
+            QMessageBox.information(
+                self,
+                "Pembaruan Berhasil Diunduh",
+                f"File versi baru telah tersimpan di:\n{new_exe_path}"
+            )
+
+    def on_update_dl_error(self, err):
+        self.update_title()
+        QMessageBox.warning(self, "Error Unduh", f"Gagal mengunduh pembaruan:\n{err}")
 
     def notify(self, title, message):
         msg = QMessageBox(self)
@@ -614,6 +775,7 @@ class PCPlayer(QMainWindow):
         lang_en_action = lang_menu.addAction("🇬🇧 English")
         
         info_action = sys_menu.addAction(self.tr("Info Audio (I)"))
+        update_action = sys_menu.addAction(self.tr("Periksa Pembaruan..."))
         register_action = sys_menu.addAction(self.tr("Jadikan Pemutar Utama (Daftarkan ke Windows)"))
         
         context_menu.setStyleSheet("""
@@ -666,6 +828,8 @@ class PCPlayer(QMainWindow):
             self.clear_loop()
         elif action == info_action:
             self.show_audio_info()
+        elif action == update_action:
+            self.check_for_updates(silent=False)
         elif action == theme_action:
             self.is_dark_theme = not self.is_dark_theme
             self.settings.setValue("is_dark_theme", str(self.is_dark_theme).lower())
